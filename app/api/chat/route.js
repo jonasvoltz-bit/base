@@ -2,31 +2,36 @@ import { NextResponse } from "next/server";
 import { getAllSermonsContent } from "@/lib/notion";
 
 function buildSystem(sermons) {
+  if (sermons.length === 0) {
+    return `Você é o Assistente Teológico da Igreja Seara (Porto Alegre, RS).
+Responda em português brasileiro com precisão teológica e tom pastoral.
+Nenhum sermão foi encontrado ainda. Informe o usuário e peça para verificar a integração com o Notion.`;
+  }
+
   const sermonsBlock = sermons
     .map((s) => `### ${s.title}\n\n${s.content}`)
     .join("\n\n---\n\n");
 
   return `Você é o Assistente Teológico da Igreja Seara (Porto Alegre, RS).
 Responda perguntas sobre os sermões, ensinamentos e teologia pregados na igreja.
-Responda em português brasileiro, com precisão teológica e tom pastoral.
+Responda em português brasileiro com precisão teológica e tom pastoral.
 Cite o sermão e os textos bíblicos sempre que relevante.
 Se a pergunta não tiver relação com os sermões abaixo, diga educadamente que sua função é responder sobre os sermões da Seara.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TRANSCRIÇÕES DOS SERMÕES DISPONÍVEIS
+TRANSCRIÇÕES DOS SERMÕES (${sermons.length} encontrado(s))
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${sermonsBlock}`;
 }
 
-// Cache em memória — 5 minutos
 let cachedSermons = null;
 let cacheTime = 0;
 
 async function getSermons() {
   const now = Date.now();
   if (cachedSermons && now - cacheTime < 5 * 60 * 1000) return cachedSermons;
-  cachedSermons = await getAllSermonsContent(process.env.NOTION_PAGE_ID);
+  cachedSermons = await getAllSermonsContent();
   cacheTime = now;
   return cachedSermons;
 }
@@ -34,7 +39,6 @@ async function getSermons() {
 export async function POST(req) {
   try {
     const { messages } = await req.json();
-
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "messages inválido" }, { status: 400 });
     }
